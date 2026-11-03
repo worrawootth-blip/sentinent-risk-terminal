@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel Risk Terminal</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#070b12; --panel:#0e1521; --panel2:#131c2b; --line:#1f2b3e;
+  --text:#dbe4f0; --muted:#7f8ea3; --accent:#f5a623; --accent2:#3fa7ff;
+  --good:#2ecc71; --warn:#f1c40f; --bad:#e74c3c; --crit:#ff2e63;
+  --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans Thai',sans-serif;font-size:14px;line-height:1.5}
+a{color:var(--accent2)}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0b111c,#070b12);position:sticky;top:0;z-index:10}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;border-radius:8px;background:conic-gradient(from 210deg,var(--accent),var(--crit),var(--accent2),var(--accent));display:grid;place-items:center;font-weight:700;color:#000}
+.brand h1{font-size:17px;letter-spacing:.5px}
+.brand small{display:block;color:var(--muted);font-size:11px;font-weight:400}
+.status{display:flex;gap:18px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.status b{color:var(--text)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good);margin-right:6px;animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.3}}
+.ticker{overflow:hidden;white-space:nowrap;border-bottom:1px solid var(--line);background:#0a0f18;font-family:var(--mono);font-size:12px;min-height:30px}
+.ticker div{display:inline-block;padding:6px 0;animation:scroll 70s linear infinite}
+.ticker .it{margin:0 22px}
+@keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+main{padding:16px;display:grid;gap:16px;grid-template-columns:repeat(12,1fr);max-width:1600px;margin:0 auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.card h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.card h2 .tag{font-size:10.5px;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none}
+.span3{grid-column:span 3}.span4{grid-column:span 4}.span5{grid-column:span 5}.span6{grid-column:span 6}.span7{grid-column:span 7}.span8{grid-column:span 8}.span12{grid-column:span 12}
+@media(max-width:1100px){.span3,.span4,.span5,.span6,.span7,.span8{grid-column:span 12}}
+.gaugeWrap{position:relative;height:170px}
+.gaugeVal{position:absolute;left:0;right:0;bottom:18px;text-align:center}
+.gaugeVal .num{font-family:var(--mono);font-size:38px;font-weight:600}
+.gaugeVal .lbl{font-size:12px;color:var(--muted)}
+.slider{margin:10px 0}
+.slider label{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
+.slider label b{font-family:var(--mono);color:var(--text)}
+.slider label i{font-style:normal;font-size:11px;color:var(--accent2);margin-left:6px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=text],input[type=password],input[type=number]{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 8px;font-family:var(--mono)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--muted);font-weight:500;cursor:pointer;user-select:none;font-size:11.5px}
+th:hover{color:var(--text)}
+td.n{font-family:var(--mono);text-align:right}
+th.n{text-align:right}
+.pill{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.scroll{overflow-x:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.kpi{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px}
+.kpi .k{font-size:11.5px;color:var(--muted)}
+.kpi .v{font-family:var(--mono);font-size:20px;font-weight:600;margin-top:2px}
+.alloc{display:grid;grid-template-columns:1fr 80px;gap:6px 10px;align-items:center}
+.alloc input{width:100%;text-align:right}
+.alloc .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
+.alloc small{color:var(--muted);font-family:var(--mono);font-size:10.5px;margin-left:4px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer;font-family:inherit;font-size:12.5px}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
+button.primary:hover{color:#000;filter:brightness(1.1)}
+.chartBox{position:relative;height:260px}
+.chartBox.tall{height:320px}
+.corr td{text-align:center;font-family:var(--mono);font-size:11px;padding:6px 3px;border:1px solid var(--bg)}
+.corr th{text-align:center;font-size:10.5px;cursor:default}
+.feed{max-height:360px;overflow-y:auto}
+.feed .ev{padding:9px 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:58px 1fr auto;gap:10px;align-items:start}
+.feed .t{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.feed .ttl{font-size:13px;color:var(--text);text-decoration:none}
+.feed .ttl:hover{color:var(--accent)}
+.feed .reg{font-size:11px;color:var(--muted)}
+.sumWarn{font-size:12px;margin-top:6px;font-family:var(--mono)}
+.note{font-size:11.5px;color:var(--muted);margin-top:8px}
+.src{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;margin-top:10px}
+.src div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px}
+.src b{display:block;font-weight:500}
+.src span{font-family:var(--mono);font-size:11px}
+.badge{display:inline-block;font-size:10px;padding:0 6px;border-radius:10px;margin-left:4px;font-weight:600;vertical-align:middle}
+.b-real{background:#2ecc7122;color:var(--good)}
+.b-est{background:#7f8ea322;color:var(--muted)}
+footer{text-align:center;color:var(--muted);font-size:11.5px;padding:18px;border-top:1px solid var(--line)}
+select{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-family:inherit}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">S</div>
+    <div><h1>SENTINEL RISK TERMINAL</h1><small>แพลตฟอร์มวิเคราะห์ความเสี่ยงเศรษฐกิจและภูมิรัฐศาสตร์โลก · ข้อมูลจริง</small></div>
+  </div>
+  <div class="status">
+    <div><span class="dot" id="liveDot"></span><b id="liveTxt">กำลังโหลดข้อมูล</b></div>
+    <div>ดัชนีความเสี่ยงโลก <b id="hdrIdx">--</b></div>
+    <div>VaR 95% (1 ปี) <b id="hdrVar">--</b></div>
+    <div id="clock">--</div>
+  </div>
+</header>
+
+<div class="ticker"><div id="ticker"></div></div>
+
+<main>
+  <!-- Data sources -->
+  <section class="card span12">
+    <h2>แหล่งข้อมูล &amp; การตั้งค่า <span class="tag">ข้อมูลถูกเก็บแคชในเบราว์เซอร์ของคุณเพื่อประหยัดโควตา API</span></h2>
+    <div class="row" style="margin-top:0">
+      <label style="font-size:12.5px;color:var(--muted)">Alpha Vantage API key (ฟรี)</label>
+      <input type="password" id="avKey" placeholder="วาง API key ที่นี่" style="width:220px">
+      <button class="primary" id="saveKey">บันทึก &amp; โหลดราคาตลาด</button>
+      <a href="https://www.alphavantage.co/support/#api-key" target="_blank" rel="noopener" style="font-size:12px">ขอ key ฟรี ↗</a>
+      <span style="flex:1"></span>
+      <button id="reload">↻ โหลดข้อมูลใหม่ (ไม่ใช้โควตา Alpha Vantage)</button>
+    </div>
+    <div class="src" id="srcList"></div>
+  </section>
+
+  <!-- Global index -->
+  <section class="card span3">
+    <h2>ดัชนีความเสี่ยงโลก <span class="tag">Global Risk Index</span></h2>
+    <div class="gaugeWrap"><canvas id="gauge"></canvas>
+      <div class="gaugeVal"><div class="num" id="gIdx">--</div><div class="lbl" id="gLbl">--</div></div>
+    </div>
+    <div class="kpis" style="margin-top:8px">
+      <div class="kpi"><div class="k">ตัวคูณความผันผวน</div><div class="v" id="kVolMult">--</div></div>
+      <div class="kpi"><div class="k">ความเครียดสหสัมพันธ์</div><div class="v" id="kCorrStress">--</div></div>
+    </div>
+    <div class="note">ตัวคูณ = 1.00× หมายถึงสภาวะปัจจุบันตามข้อมูลจริง</div>
+  </section>
+
+  <!-- Macro sliders -->
+  <section class="card span4">
+    <h2>ปัจจัยมหภาค <span class="tag">ค่าเริ่มต้นคำนวณจากข้อมูลจริง · เลื่อนเพื่อจำลองสถานการณ์</span></h2>
+    <div id="sliders"></div>
+    <div class="row">
+      <button id="calibBtn">⟲ กลับสู่สภาวะปัจจุบัน (ข้อมูลจริง)</button>
+      <select id="regime">
+        <option value="">— สภาวะสำเร็จรูป —</option>
+        <option value="calm">ตลาดสงบ (Goldilocks)</option>
+        <option value="stag">Stagflation</option>
+        <option value="war">สงครามขยายวง</option>
+        <option value="crisis">วิกฤตการเงิน</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- Risk matrix -->
+  <section class="card span5">
+    <h2>เมทริกซ์ความเสี่ยงหลัก <span class="tag">ประเมินเชิงคุณภาพ · โอกาสปรับตามปัจจัยมหภาค</span></h2>
+    <div class="chartBox"><canvas id="matrix"></canvas></div>
+  </section>
+
+  <!-- Country table -->
+  <section class="card span7">
+    <h2>ความเสี่ยงรายประเทศ <span class="tag">ภูมิรัฐศาสตร์: โทนข่าว GDELT 7 วัน · เศรษฐกิจ/การเงิน/การเมือง: World Bank · คลิกหัวตารางเพื่อเรียง</span></h2>
+    <div class="scroll"><table id="ctable"><thead><tr>
+      <th data-k="name">ประเทศ/ภูมิภาค</th>
+      <th class="n" data-k="geo">ภูมิรัฐศาสตร์</th>
+      <th class="n" data-k="econ">เศรษฐกิจ</th>
+      <th class="n" data-k="fin">การเงิน/หนี้</th>
+      <th class="n" data-k="pol">การเมือง</th>
+      <th class="n" data-k="total">รวม</th>
+      <th data-k="trend">แนวโน้มข่าว</th>
+      <th class="n" data-k="gdp">GDP %</th>
+      <th class="n" data-k="cpi">เงินเฟ้อ %</th>
+      <th class="n" data-k="tone">โทนข่าว</th>
+      <th data-k="srcN">ที่มา</th>
+    </tr></thead><tbody></tbody></table></div>
+    <div class="note">คะแนน 0–100 (สูง = เสี่ยงมาก) · ชี้เมาส์ที่ตัวเลขเพื่อดูค่าดิบและปีของข้อมูล · ไต้หวันไม่อยู่ในฐานข้อมูล World Bank จึงใช้ค่าประมาณสำหรับมิติเศรษฐกิจ</div>
+  </section>
+
+  <!-- Event feed -->
+  <section class="card span5">
+    <h2>ข่าวความเสี่ยงล่าสุด <span class="tag" id="feedTag">GDELT · 24 ชั่วโมง</span></h2>
+    <div class="feed" id="feed"><div class="note">กำลังโหลดข่าว…</div></div>
+  </section>
+
+  <!-- Portfolio -->
+  <section class="card span4">
+    <h2>พอร์ตลงทุน <span class="tag">สัดส่วน (%) · ETF ตัวแทน</span></h2>
+    <div class="slider" style="margin-top:0"><label>มูลค่าพอร์ต (USD)</label>
+      <input type="number" id="pv" value="10000000" step="100000" style="width:100%">
+    </div>
+    <div class="alloc" id="alloc"></div>
+    <div class="sumWarn" id="sumWarn"></div>
+    <div class="row">
+      <button data-p="6040">60/40</button>
+      <button data-p="growth">เติบโต</button>
+      <button data-p="defensive">ป้องกัน</button>
+      <button data-p="allw">All-Weather</button>
+    </div>
+  </section>
+
+  <!-- KPIs + risk contribution -->
+  <section class="card span8">
+    <h2>การวัดความเสี่ยงพอร์ต <span class="tag" id="riskTag">Parametric + Monte Carlo</span></h2>
+    <div class="kpis" id="pkpis"></div>
+    <div class="chartBox" style="margin-top:12px"><canvas id="contrib"></canvas></div>
+  </section>
+
+  <!-- Monte Carlo -->
+  <section class="card span7">
+    <h2>จำลอง Monte Carlo 12 เดือน <span class="tag">2,000 เส้นทาง · Cholesky</span></h2>
+    <div class="chartBox tall"><canvas id="mc"></canvas></div>
+    <div class="row"><button class="primary" id="rerun">▶ รันการจำลองใหม่</button><span class="note" id="mcNote"></span></div>
+  </section>
+
+  <!-- Stress test -->
+  <section class="card span5">
+    <h2>Stress Test ฉากทัศน์ <span class="tag">ผลกระทบทันทีต่อพอร์ต</span></h2>
+    <div class="chartBox tall"><canvas id="stress"></canvas></div>
+  </section>
+
+  <section class="card span7">
+    <h2>รายละเอียด Stress Test <span class="tag">% เปลี่ยนแปลงสมมติ อิงเหตุการณ์ในอดีต</span></h2>
+    <div class="scroll"><table id="stable"></table></div>
+  </section>
+
+  <!-- Correlation -->
+  <section class="card span5">
+    <h2>เมทริกซ์สหสัมพันธ์ <span class="tag" id="corrTag">ค่าสมมติ</span></h2>
+    <div class="scroll"><table class="corr" id="corr"></table></div>
+  </section>
+</main>
+
+<footer>
+  แหล่งข้อมูล: World Bank Open Data · GDELT Project DOC 2.0 · Alpha Vantage · Frankfurter (อัตราแลกเปลี่ยน ECB)<br>
+  ข้อมูล World Bank เป็นรายปีและอาจล่าช้า 1–2 ปี · ราคาตลาดเป็นราคาปิดรายวัน · คะแนนความเสี่ยงคำนวณด้วยสูตรของหน้านี้ ไม่ใช่การจัดอันดับอย่างเป็นทางการ<br>
+  ⚠️ เครื่องมือนี้มีไว้เพื่อการศึกษา ไม่ใช่คำแนะนำการลงทุน
+</footer>
+
+<script>
+/* ================================================================
+   CONFIG
+   ================================================================ */
+const ASSETS = [
+  {n:'หุ้นสหรัฐฯ',          sym:'SPY', c:'#3fa7ff', mu:.070, vol:.16},
+  {n:'หุ้นประเทศพัฒนาแล้ว',   sym:'EFA', c:'#7b6cff', mu:.065, vol:.17},
+  {n:'หุ้นตลาดเกิดใหม่',      sym:'EEM', c:'#ff6fb5', mu:.080, vol:.22},
+  {n:'พันธบัตรรัฐบาลสหรัฐฯ',   sym:'IEF', c:'#2ecc71', mu:.040, vol:.07},
+  {n:'หุ้นกู้เอกชน',          sym:'LQD', c:'#1abc9c', mu:.050, vol:.08},
+  {n:'ทองคำ',               sym:'GLD', c:'#f5a623', mu:.040, vol:.15},
+  {n:'สินค้าโภคภัณฑ์',        sym:'DBC', c:'#e67e22', mu:.030, vol:.20},
+  {n:'เงินสด',              sym:null,  c:'#95a5a6', mu:.035, vol:.005},
+];
+const SHORT = ['US Eq','DM Eq','EM Eq','UST','Corp','Gold','Cmdty','Cash'];
+const RISKY = [0,1,2,4,6];
+const ASSUMED_CORR = [
+  [1,.85,.75,-.20,.50,.05,.30,0],
+  [.85,1,.80,-.15,.50,.10,.30,0],
+  [.75,.80,1,-.10,.50,.20,.40,0],
+  [-.20,-.15,-.10,1,.60,.30,-.20,.10],
+  [.50,.50,.50,.60,1,.20,.10,.05],
+  [.05,.10,.20,.30,.20,1,.20,0],
+  [.30,.30,.40,-.20,.10,.20,1,0],
+  [0,0,0,.10,.05,0,0,1],
+];
+
+const FACTORS = [
+  {id:'geo', n:'ความตึงเครียดภูมิรัฐศาสตร์', v:55, how:'เฉลี่ยคะแนนภูมิรัฐศาสตร์ (GDELT)'},
+  {id:'inf', n:'แรงกดดันเงินเฟ้อ',          v:45, how:'เงินเฟ้อสหรัฐฯ/โลก (World Bank)'},
+  {id:'rate',n:'ความเสี่ยงอัตราดอกเบี้ย',     v:50, how:'อัตราผลตอบแทนพันธบัตร 10 ปี'},
+  {id:'rec', n:'โอกาสเศรษฐกิจถดถอย',        v:35, how:'GDP โลก + yield curve + drawdown หุ้น'},
+  {id:'liq', n:'ความตึงตัวสภาพคล่อง',        v:40, how:'ความผันผวนจริงของ S&P 500'},
+];
+let CALIB = Object.fromEntries(FACTORS.map(f=>[f.id,f.v]));
+let userTouched = false;
+const REGIMES = {
+  calm:{geo:25,inf:25,rate:30,rec:15,liq:15},
+  stag:{geo:55,inf:85,rate:80,rec:65,liq:55},
+  war:{geo:95,inf:70,rate:55,rec:60,liq:70},
+  crisis:{geo:60,inf:30,rate:40,rec:90,liq:95},
+};
+
+// b = baseline [geo, econ, fin, pol] ใช้เมื่อดึงข้อมูลจริงไม่ได้
+const COUNTRIES = [
+  {iso:'USA', name:'🇺🇸 สหรัฐอเมริกา', q:'United States', b:[45,35,50,55], w:25},
+  {iso:'CHN', name:'🇨🇳 จีน', q:'China', b:[70,55,65,40], w:18},
+  {iso:'TWN', name:'🇹🇼 ไต้หวัน', q:'Taiwan', b:[85,30,25,30], w:4},
+  {iso:'RUS', name:'🇷🇺 รัสเซีย', q:'Russia', b:[92,70,60,65], w:3},
+  {iso:'UKR', name:'🇺🇦 ยูเครน', q:'Ukraine', b:[95,85,80,60], w:1},
+  {iso:'ISR', name:'🇮🇱 อิสราเอล', q:'Israel', b:[85,40,35,60], w:2},
+  {iso:'IRN', name:'🇮🇷 อิหร่าน', q:'Iran', b:[90,80,75,70], w:2},
+  {iso:'EUU', name:'🇪🇺 สหภาพยุโรป', q:'European Union', b:[50,50,45,45], w:15},
+  {iso:'JPN', name:'🇯🇵 ญี่ปุ่น', q:'Japan', b:[45,40,60,25], w:7},
+  {iso:'IND', name:'🇮🇳 อินเดีย', q:'India', b:[50,30,45,35], w:6},
+  {iso:'BRA', name:'🇧🇷 บราซิล', q:'Brazil', b:[25,50,60,55], w:3},
+  {iso:'TUR', name:'🇹🇷 ตุรกี', q:'Turkey', b:[60,70,75,60], w:2},
+  {iso:'ARG', name:'🇦🇷 อาร์เจนตินา', q:'Argentina', b:[20,75,85,60], w:1},
+  {iso:'THA', name:'🇹🇭 ไทย', q:'Thailand', b:[30,50,50,55], w:2},
+  {iso:'SAU', name:'🇸🇦 ซาอุดีอาระเบีย', q:'Saudi Arabia', b:[65,40,30,35], w:2},
+];
+
+const SCENARIOS = [
+  {n:'ความขัดแย้งช่องแคบไต้หวัน', s:[-18,-15,-28,4,-6,10,15,0]},
+  {n:'วิกฤตน้ำมันตะวันออกกลาง', s:[-10,-12,-14,-2,-5,8,30,0]},
+  {n:'เงินเฟ้อกลับมา / ดอกเบี้ยพุ่ง', s:[-15,-13,-18,-9,-10,-4,5,.5]},
+  {n:'เศรษฐกิจโลกถดถอย', s:[-25,-24,-30,8,-8,6,-30,.3]},
+  {n:'ดอลลาร์แข็ง / วิกฤตหนี้ EM', s:[-8,-10,-25,3,-6,-3,-12,0]},
+  {n:'ฟองสบู่หุ้นเทคโนโลยีแตก', s:[-30,-15,-20,6,-7,4,-10,0]},
+  {n:'วิกฤตสภาพคล่องแบบปี 2008', s:[-40,-42,-50,12,-15,5,-45,0]},
+];
+
+const RISKS = [
+  {n:'สงครามการค้า/ภาษีศุลกากร', p:70,i:60,u:8, f:'geo'},
+  {n:'ความขัดแย้งไต้หวัน', p:15,i:95,u:6, f:'geo'},
+  {n:'สงครามตะวันออกกลางขยายวง', p:35,i:75,u:9, f:'geo'},
+  {n:'เงินเฟ้อดื้อ', p:45,i:55,u:6, f:'inf'},
+  {n:'หนี้สาธารณะสหรัฐฯ', p:40,i:70,u:5, f:'rate'},
+  {n:'อสังหาฯ จีนล่ม', p:50,i:60,u:5, f:'rec'},
+  {n:'ฟองสบู่ AI', p:35,i:70,u:7, f:'liq'},
+  {n:'ภัยไซเบอร์โครงสร้างพื้นฐาน', p:30,i:65,u:6, f:'geo'},
+  {n:'ภัยพิบัติสภาพภูมิอากาศ', p:60,i:45,u:4, f:null},
+  {n:'สงครามรัสเซีย-ยูเครน', p:65,i:50,u:5, f:'geo'},
+];
+
+const PRESETS = {
+  '6040':[30,15,10,25,15,0,0,5],
+  growth:[40,20,20,5,5,5,5,0],
+  defensive:[15,5,0,40,20,10,0,10],
+  allw:[18,6,6,40,15,8,7,0],
+};
+let weights = [...PRESETS['6040']];
+
+/* ================================================================
+   REAL-DATA STATE
+   ================================================================ */
+const REAL = {
+  wb:{},          // indicator -> iso -> {v, y}
+  tone:{},        // iso -> {avg, trend}
+  news:[],
+  market:null,    // {vol[], corr[][], quotes{}, n, from, to, spyDD}
+  y10:null, y3m:null,
+  fx:null,
+};
+
+/* ================================================================
+   HELPERS
+   ================================================================ */
+const $ = s=>document.querySelector(s);
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtUSD = v=>(v<0?'-':'')+'$'+Math.abs(v).toLocaleString('en-US',{maximumFractionDigits:0});
+const fmtPct = (v,d=1)=>(v*100).toFixed(d)+'%';
+const sleep = ms=>new Promise(r=>setTimeout(r,ms));
+function riskColor(s){ if(s<35) return '#2ecc71'; if(s<50) return '#a3d65c'; if(s<65) return '#f1c40f'; if(s<80) return '#e67e22'; return '#ff2e63'; }
+function riskLabel(s){ if(s<35) return 'ต่ำ'; if(s<50) return 'ปานกลาง'; if(s<65) return 'สูง'; if(s<80) return 'สูงมาก'; return 'วิกฤต'; }
+function randn(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function chol(A){const n=A.length,L=A.map(()=>Array(n).fill(0));
+  for(let i=0;i<n;i++)for(let j=0;j<=i;j++){let s=A[i][j];for(let k=0;k<j;k++)s-=L[i][k]*L[j][k];
+    L[i][j]= i===j ? Math.sqrt(Math.max(s,1e-10)) : s/L[j][j];}
+  return L;}
+const fval = id=>FACTORS.find(f=>f.id===id).v;
+const dlt = id=>(fval(id)-CALIB[id])/100;   // ส่วนต่างจากสภาวะปัจจุบัน
+const mean = a=>a.reduce((s,x)=>s+x,0)/a.length;
+const std = a=>{const m=mean(a);return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1));};
+
+/* ---- cache (localStorage, ปลอดภัยถ้าใช้ไม่ได้) ---- */
+const HOUR=3600e3, DAY=24*HOUR;
+const store = {
+  get(k){ try{ const x=localStorage.getItem('srt_'+k); return x?JSON.parse(x):null; }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem('srt_'+k, JSON.stringify({t:Date.now(),v})); }catch(e){} },
+  clear(){ try{ Object.keys(localStorage).filter(k=>k.startsWith('srt_')&&!k.startsWith('srt_av')).forEach(k=>localStorage.removeItem(k)); }catch(e){} },
+};
+async function cached(key, ttl, fn){
+  const c=store.get(key);
+  if(c && Date.now()-c.t<ttl) return {v:c.v, cached:true, t:c.t};
+  try{ const v=await fn(); store.set(key,v); return {v, cached:false, t:Date.now()}; }
+  catch(e){ if(c) return {v:c.v, cached:true, stale:true, t:c.t, err:e}; throw e; }
+}
+/* ---- คิวจำกัดอัตราเรียก API ---- */
+function makeQueue(gap){ let last=0, chain=Promise.resolve();
+  return fn=>{ const p=chain.then(async()=>{ const w=last+gap-Date.now(); if(w>0) await sleep(w); last=Date.now(); return fn(); });
+    chain=p.catch(()=>{}); return p; }; }
+const gdeltQ = makeQueue(5600);   // GDELT: 1 ครั้ง / 5 วินาที
+const avQ    = makeQueue(12500);  // Alpha Vantage: 5 ครั้ง / นาที
+
+/* ---- status panel ---- */
+const SOURCES = {
+  wb:   'World Bank · เศรษฐกิจ/หนี้/เสถียรภาพการเมือง',
+  gdelt:'GDELT · โทนข่าวรายประเทศ (7 วัน)',
+  news: 'GDELT · ข่าวความเสี่ยงล่าสุด',
+  av:   'Alpha Vantage · ราคา ETF & อัตราผลตอบแทนพันธบัตร',
+  fx:   'Frankfurter (ECB) · อัตราแลกเปลี่ยน',
+};
+const ST_COL={loading:'var(--warn)',ok:'var(--good)',cache:'var(--accent2)',err:'var(--bad)',need:'var(--muted)'};
+const ST_TXT={loading:'⏳ กำลังโหลด',ok:'✓ สด',cache:'✓ จากแคช',err:'✕ ผิดพลาด',need:'○ ยังไม่ได้ตั้งค่า'};
+function buildSrc(){ $('#srcList').innerHTML=Object.entries(SOURCES).map(([k,n])=>`<div><b>${n}</b><span id="st_${k}" style="color:var(--muted)">—</span></div>`).join(''); }
+function status(id,st,msg=''){ const el=$('#st_'+id); if(!el) return; el.style.color=ST_COL[st]; el.textContent=ST_TXT[st]+(msg?' · '+msg:''); refreshLive(); }
+function refreshLive(){
+  const sts=Object.keys(SOURCES).map(k=>$('#st_'+k)?.textContent||'');
+  const loading=sts.some(s=>s.startsWith('⏳')), okN=sts.filter(s=>s.startsWith('✓')).length;
+  $('#liveTxt').textContent = loading ? 'กำลังโหลดข้อมูล' : `ข้อมูลจริง ${okN}/${sts.length} แหล่ง`;
+  $('#liveDot').style.background = loading ? 'var(--warn)' : okN ? 'var(--good)' : 'var(--bad)';
+}
+const ago = t=>{const m=Math.round((Date.now()-t)/60000); return m<1?'เมื่อสักครู่':m<60?m+' นาทีก่อน':m<1440?Math.round(m/60)+' ชม.ก่อน':Math.round(m/1440)+' วันก่อน';};
+
+/* ================================================================
+   DATA LOADERS
+   ================================================================ */
+async function getJSON(url){
+  const r=await fetch(url); const t=await r.text();
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  try{ return JSON.parse(t); }catch(e){ throw new Error(t.slice(0,80)||'ตอบกลับไม่ใช่ JSON'); }
+}
+
+/* ---- World Bank ---- */
+const WB_ISO = [...COUNTRIES.map(c=>c.iso).filter(i=>i!=='TWN'),'WLD'];
+const WB_IND = {
+  gdp:  [['NY.GDP.MKTP.KD.ZG']],
+  cpi:  [['FP.CPI.TOTL.ZG']],
+  unemp:[['SL.UEM.TOTL.ZS']],
+  cab:  [['BN.CAB.XOKA.GD.ZS']],
+  debt: [['GC.DOD.TOTL.GD.ZS']],
+  pv:   [['GOV_WGI_PV.EST',3],['PV.EST',3],['GOV_WGI_PV_EST',3],['PV.EST',null]],
+};
+async function wbFetch(code,source){
+  const url=`https://api.worldbank.org/v2/country/${WB_ISO.join(';')}/indicator/${code}?format=json&mrnev=1&per_page=300${source?'&source='+source:''}`;
+  const j=await getJSON(url);
+  if(!Array.isArray(j)||!Array.isArray(j[1])) throw new Error('ไม่มีข้อมูล '+code);
+  const out={}; for(const r of j[1]) if(r.value!=null) out[r.countryiso3code||r.country?.id]={v:+r.value,y:r.date};
+  if(!Object.keys(out).length) throw new Error('ว่าง '+code);
+  return out;
+}
+async function loadWB(){
+  status('wb','loading');
+  let ok=0, fromCache=true, t=Date.now();
+  await Promise.all(Object.entries(WB_IND).map(async([k,cands])=>{
+    try{
+      const res=await cached('wb_'+k, 7*DAY, async()=>{
+        let lastErr; for(const [code,src] of cands){ try{ return await wbFetch(code,src); }catch(e){ lastErr=e; } } throw lastErr;
+      });
+      REAL.wb[k]=res.v; ok++; if(!res.cached) fromCache=false; t=Math.min(t,res.t);
+    }catch(e){ console.warn('WB',k,e); }
+  }));
+  if(ok) status('wb', fromCache?'cache':'ok', `${ok}/${Object.keys(WB_IND).length} ตัวชี้วัด · ${ago(t)}`);
+  else status('wb','err','เชื่อมต่อไม่ได้ (ใช้ค่าประมาณ)');
+  afterData();
+}
+
+/* ---- GDELT ---- */
+const gdeltURL = (q,mode,extra='')=>`https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=${mode}&format=json${extra}`;
+/* JSONP: GDELT รองรับ format=jsonp&callback=... ใช้ <script> จึงไม่ติดข้อจำกัด CORS */
+let jsonpN=0;
+function jsonp(url, timeout=20000){
+  return new Promise((resolve,reject)=>{
+    const cb='__gdelt_cb'+(++jsonpN), s=document.createElement('script');
+    const done=()=>{ clearTimeout(tm); try{ delete window[cb]; }catch(e){ window[cb]=undefined; } s.remove(); };
+    const tm=setTimeout(()=>{ done(); reject(new Error('หมดเวลา (JSONP)')); }, timeout);
+    window[cb]=data=>{ done(); resolve(data); };
+    s.onerror=()=>{ done(); reject(new Error('โหลดสคริปต์ไม่ได้ (อาจถูกบล็อกโดยส่วนขยาย/เครือข่าย)')); };
+    s.src=url.replace('format=json','format=jsonp')+'&callback='+cb;
+    document.head.appendChild(s);
+  });
+}
+let gdeltMode='fetch';   // จำวิธีที่ใช้ได้ล่าสุด
+async function gdeltGet(url){
+  let lastErr;
+  for(let attempt=0; attempt<3; attempt++){
+    if(attempt) await sleep(6000*attempt);              // เว้นระยะเมื่อถูกจำกัดอัตรา
+    const order = gdeltMode==='jsonp' ? ['jsonp','fetch'] : ['fetch','jsonp'];
+    for(const m of order){
+      try{
+        const j = m==='fetch' ? await getJSON(url) : await jsonp(url);
+        gdeltMode=m; return j;
+      }catch(e){ lastErr=e; console.warn('GDELT',m,e.message); }
+    }
+  }
+  throw lastErr;
+}
+async function loadNews(){
+  status('news','loading');
+  const q='(war OR missile OR sanctions OR coup OR invasion OR tariff OR "central bank" OR recession OR default) sourcelang:english';
+  try{
+    const res=await cached('gdelt_news', 1*HOUR, ()=>gdeltQ(async()=>{
+      const j=await gdeltGet(gdeltURL(q,'artlist','&maxrecords=40&sort=datedesc&timespan=24h'));
+      if(!j.articles) throw new Error('ไม่มีบทความ'); return j.articles;
+    }));
+    // ตัดหัวข้อซ้ำ
+    const seen=new Set(); REAL.news=res.v.filter(a=>{const k=(a.title||'').toLowerCase().slice(0,60); if(seen.has(k))return false; seen.add(k); return true;}).slice(0,25);
+    status('news', res.cached?'cache':'ok', `${REAL.news.length} ข่าว · ${ago(res.t)}`);
+  }catch(e){ status('news','err',e.message); REAL.news=[]; }
+  renderFeed();
+}
+/* คำค้นหลายรูปแบบ: ลองตามลำดับจนได้ข้อมูล แล้วจำรูปแบบที่ใช้ได้ */
+const qTerm = q=>q.includes(' ')?`"${q}"`:q;
+const TONE_VARIANTS = [
+  c=>gdeltURL(`${qTerm(c.q)} sourcelang:english`,'timelinetone','&timespan=7days'),
+  c=>gdeltURL(qTerm(c.q),'timelinetone','&timespan=1week'),
+  c=>gdeltURL(`${qTerm(c.q)} sourcelang:english`,'tonechart','&timespan=7days'),
+  c=>gdeltURL(qTerm(c.q),'timelinetone',''),
+];
+let toneVariant=0;
+function parseTone(j){
+  // แบบ timeline: {timeline:[{series, data:[{date, value}]}]}
+  const series=(j?.timeline||[]).find(s=>Array.isArray(s.data)&&s.data.length);
+  if(series){
+    const data=series.data.map(d=>+d.value).filter(Number.isFinite);
+    if(data.length>=4){ const cut=Math.floor(data.length*0.75);
+      return {avg:mean(data), recent:mean(data.slice(cut)), early:mean(data.slice(0,cut))}; }
+  }
+  // แบบ tonechart: {tonechart:[{bin, count}]} → ค่าเฉลี่ยถ่วงน้ำหนัก
+  const tc=j?.tonechart;
+  if(Array.isArray(tc)&&tc.length){
+    let s=0,n=0; for(const b of tc){ const bin=+b.bin, cnt=+b.count; if(Number.isFinite(bin)&&cnt>0){ s+=bin*cnt; n+=cnt; } }
+    if(n>=10){ const avg=s/n; return {avg, recent:avg, early:avg}; }
+  }
+  return null;
+}
+async function fetchTone(c){
+  let lastErr;
+  for(let k=0;k<TONE_VARIANTS.length;k++){
+    const v=(toneVariant+k)%TONE_VARIANTS.length;
+    try{
+      const j=await gdeltQ(()=>gdeltGet(TONE_VARIANTS[v](c)));
+      const r=parseTone(j);
+      if(r){ toneVariant=v; return r; }
+      lastErr=new Error('ไม่มีข้อมูล · คำตอบ: '+JSON.stringify(j).slice(0,70));
+    }catch(e){ lastErr=e; }
+  }
+  throw lastErr;
+}
+async function loadTone(){
+  status('gdelt','loading',`0/${COUNTRIES.length}`);
+  let done=0, ok=0, live=false, t=Date.now(), failRun=0, lastMsg='';
+  for(const c of COUNTRIES){
+    if(failRun>=3 && !store.get('gdelt_tone_'+c.iso)){ done++; continue; }   // ล้มเหลวติดกัน 3 ครั้ง → หยุดเรียกเพื่อไม่ให้ค้าง
+    try{
+      const res=await cached('gdelt_tone_'+c.iso, 3*HOUR, ()=>fetchTone(c));
+      REAL.tone[c.iso]=res.v; ok++; failRun=0; if(!res.cached) live=true; t=Math.min(t,res.t);
+    }catch(e){ console.warn('GDELT',c.iso,e); failRun++; lastMsg=e.message; }
+    done++; status('gdelt','loading',`${done}/${COUNTRIES.length}${ok?'':' · กำลังลองใหม่'}`);
+    updateAll(false);
+  }
+  if(ok===COUNTRIES.length) status('gdelt', live?'ok':'cache', `${ok}/${COUNTRIES.length} ประเทศ · ${ago(t)}`);
+  else if(ok) status('gdelt','err',`ได้ ${ok}/${COUNTRIES.length} ประเทศ — กด "โหลดใหม่" อีกครั้งเพื่อเติมส่วนที่ขาด`);
+  else status('gdelt','err',`${lastMsg||'เชื่อมต่อไม่ได้'} (ใช้ค่าประมาณ)`);
+  afterData();
+}
+
+/* ---- Frankfurter FX ---- */
+async function loadFX(){
+  status('fx','loading');
+  try{
+    const res=await cached('fx', 2*HOUR, async()=>{
+      const d=new Date(Date.now()-10*DAY).toISOString().slice(0,10);
+      const j=await getJSON(`https://api.frankfurter.dev/v1/${d}..?base=USD&symbols=EUR,JPY,CNY,THB,GBP`);
+      const dates=Object.keys(j.rates||{}).sort(); if(dates.length<2) throw new Error('ข้อมูลน้อย');
+      return {last:j.rates[dates.at(-1)], prev:j.rates[dates.at(-2)], wk:j.rates[dates[0]], date:dates.at(-1)};
+    });
+    REAL.fx=res.v; status('fx', res.cached?'cache':'ok', `ข้อมูลวันที่ ${res.v.date}`);
+  }catch(e){ status('fx','err',e.message); }
+  renderTicker();
+}
+
+/* ---- Alpha Vantage ---- */
+const getKey=()=>{ try{ return localStorage.getItem('srt_avkey')||''; }catch(e){ return ''; } };
+function avCheck(j){ const m=j.Note||j.Information||j['Error Message']; if(m) throw new Error(m.slice(0,140)); return j; }
+async function avDaily(sym,key){
+  const j=avCheck(await getJSON(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${sym}&outputsize=compact&apikey=${encodeURIComponent(key)}`));
+  const ts=j['Time Series (Daily)']; if(!ts) throw new Error('ไม่มีข้อมูล '+sym);
+  return Object.fromEntries(Object.entries(ts).map(([d,o])=>[d,+o['4. close']]));
+}
+async function avYield(mat,key){
+  const j=avCheck(await getJSON(`https://www.alphavantage.co/query?function=TREASURY_YIELD&interval=daily&maturity=${mat}&apikey=${encodeURIComponent(key)}`));
+  const row=(j.data||[]).find(r=>r.value&&r.value!=='.'); if(!row) throw new Error('ไม่มี yield');
+  const rows=(j.data||[]).filter(r=>r.value&&r.value!=='.');
+  return {v:+rows[0].value, prev:rows[1]?+rows[1].value:null, date:rows[0].date};
+}
+async function loadMarket(){
+  const key=getKey();
+  if(!key){ status('av','need','ใส่ API key ด้านบนเพื่อใช้ความผันผวน/สหสัมพันธ์จริง'); afterData(); return; }
+  const syms=ASSETS.filter(a=>a.sym).map(a=>a.sym);
+  const series={}; let i=0, stop=false, live=false;
+  const total=syms.length+2;
+  for(const s of syms){
+    if(stop) break;
+    status('av','loading',`${++i}/${total} (${s})`);
+    try{ const r=await cached('av_'+s, 20*HOUR, ()=>avQ(()=>avDaily(s,key))); series[s]=r.v; if(!r.cached) live=true; }
+    catch(e){ console.warn('AV',s,e); if(/rate|limit|premium|call frequency|Thank you|invalid/i.test(e.message)){ stop=true; status('av','err',e.message); } }
+  }
+  for(const [mat,k] of [['10year','y10'],['3month','y3m']]){
+    if(stop) break;
+    status('av','loading',`${++i}/${total} (${mat})`);
+    try{ const r=await cached('av_'+k, 20*HOUR, ()=>avQ(()=>avYield(mat,key))); REAL[k]=r.v; if(!r.cached) live=true; }
+    catch(e){ console.warn('AV',mat,e); if(/rate|limit|premium|call frequency|Thank you/i.test(e.message)){ stop=true; status('av','err',e.message); } }
+  }
+  if(Object.keys(series).length>=2) computeMarket(series);
+  const n=Object.keys(series).length;
+  if(n && !stop) status('av', live?'ok':'cache', `${n}/${syms.length} ETF · ${REAL.market?.n||0} วันทำการ`);
+  else if(n) status('av','err',`ได้ ${n}/${syms.length} ETF — โควตาเต็ม ลองใหม่พรุ่งนี้หรือรอ 1 นาที`);
+  afterData(true);
+}
+function computeMarket(series){
+  const idx=ASSETS.map((a,i)=>a.sym&&series[a.sym]?i:-1).filter(i=>i>=0);
+  let dates=Object.keys(series[ASSETS[idx[0]].sym]);
+  for(const i of idx){ const s=series[ASSETS[i].sym]; dates=dates.filter(d=>d in s); }
+  dates.sort();
+  if(dates.length<20) return;
+  const rets={};
+  for(const i of idx){ const s=series[ASSETS[i].sym]; rets[i]=[]; for(let t=1;t<dates.length;t++) rets[i].push(Math.log(s[dates[t]]/s[dates[t-1]])); }
+  const vol=ASSETS.map((a,i)=> rets[i] ? std(rets[i])*Math.sqrt(252) : null);
+  const corr=ASSUMED_CORR.map(r=>[...r]);
+  for(const i of idx) for(const j of idx){
+    if(i===j) continue;
+    const a=rets[i], b=rets[j], ma=mean(a), mb=mean(b);
+    let c=0,va=0,vb=0; for(let t=0;t<a.length;t++){c+=(a[t]-ma)*(b[t]-mb);va+=(a[t]-ma)**2;vb+=(b[t]-mb)**2;}
+    corr[i][j]=c/Math.sqrt(va*vb);
+  }
+  const quotes={};
+  for(const a of ASSETS) if(a.sym&&series[a.sym]){
+    const ds=Object.keys(series[a.sym]).sort(); const last=series[a.sym][ds.at(-1)], prev=series[a.sym][ds.at(-2)];
+    quotes[a.sym]={last, chg:(last/prev-1), date:ds.at(-1)};
+  }
+  let spyDD=null;
+  if(series.SPY){ const v=Object.keys(series.SPY).sort().map(d=>series.SPY[d]); spyDD=v.at(-1)/Math.max(...v)-1; }
+  REAL.market={vol,corr,quotes,n:dates.length,from:dates[0],to:dates.at(-1),spyDD,real:idx};
+}
+
+/* ================================================================
+   CALIBRATION: ข้อมูลจริง → ปัจจัยมหภาค
+   ================================================================ */
+function calibrate(){
+  const c={...CALIB}, wb=REAL.wb;
+  const rows=countryScores(true);
+  const geoRows=rows.filter(r=>r.src.geo);
+  if(geoRows.length>=5) c.geo=Math.round(geoRows.reduce((s,r)=>s+r.geo*r.w,0)/geoRows.reduce((s,r)=>s+r.w,0));
+  const cpiUS=wb.cpi?.USA?.v, cpiW=wb.cpi?.WLD?.v;
+  const infl=[cpiUS,cpiW].filter(Number.isFinite);
+  if(infl.length) c.inf=Math.round(clamp((mean(infl)-1)*13,0,100));
+  if(REAL.y10){ c.rate=Math.round(clamp((REAL.y10.v-1)*16,0,100)); }
+  let rec=[];
+  if(Number.isFinite(wb.gdp?.WLD?.v)) rec.push(clamp(40-(wb.gdp.WLD.v-2.8)*20,0,100));
+  if(REAL.y10&&REAL.y3m) rec.push(clamp(35-(REAL.y10.v-REAL.y3m.v)*20,0,100));   // yield curve กลับหัว = เสี่ยงขึ้น
+  if(REAL.market?.spyDD!=null) rec.push(clamp(20-REAL.market.spyDD*250,0,100));
+  if(rec.length) c.rec=Math.round(mean(rec));
+  const v=REAL.market?.vol?.[0];
+  if(v) c.liq=Math.round(clamp((v-0.09)*320,0,100));
+  CALIB=c;
+}
+function applyCalib(){
+  FACTORS.forEach(f=>{ f.v=CALIB[f.id]; const el=document.querySelector(`#sliders input[data-id=${f.id}]`); if(el){el.value=f.v; $('#v_'+f.id).textContent=f.v;} $('#c_'+f.id).textContent='ปัจจุบัน '+CALIB[f.id]; });
+}
+let mcTimer=null;
+function afterData(runMc=false){
+  calibrate();
+  if(!userTouched) applyCalib(); else FACTORS.forEach(f=>$('#c_'+f.id).textContent='ปัจจุบัน '+CALIB[f.id]);
+  updateAll(false); renderTicker();
+  if(runMc){ clearTimeout(mcTimer); mcTimer=setTimeout(runMC,200); }
+}
+
+/* ================================================================
+   SCORING
+   ================================================================ */
+function countryScores(noAdj=false){
+  const wb=REAL.wb;
+  const aG = noAdj?0:dlt('geo')*30, aE=noAdj?0:dlt('rec')*25, aF=noAdj?0:(dlt('liq')*20+dlt('rate')*12);
+  return COUNTRIES.map(c=>{
+    const g=k=>wb[k]?.[c.iso];
+    const src={geo:false,econ:false,fin:false,pol:false};
+    const tip={geo:'ค่าประมาณ',econ:'ค่าประมาณ',fin:'ค่าประมาณ',pol:'ค่าประมาณ'};
+    // ภูมิรัฐศาสตร์ ← โทนข่าว GDELT (ยิ่งลบยิ่งเสี่ยง)
+    let geo=c.b[0], trend=0, tone=null;
+    const T=REAL.tone[c.iso];
+    if(T){ tone=T.avg; geo=clamp(50+(-T.avg-2)*14,3,98); src.geo=true; tip.geo=`โทนข่าวเฉลี่ย 7 วัน ${T.avg.toFixed(2)}`;
+      const d=T.recent-T.early; trend = d<-0.25?1 : d>0.25?-1 : 0; }
+    // เศรษฐกิจ ← GDP, เงินเฟ้อ, ว่างงาน
+    let econ=c.b[1], terms=[], tt=[];
+    if(g('gdp')){ terms.push(-(g('gdp').v-2.5)*7); tt.push(`GDP ${g('gdp').v.toFixed(1)}% (${g('gdp').y})`); }
+    if(g('cpi')){ terms.push((Math.min(g('cpi').v,80)-3)*2.2); tt.push(`เงินเฟ้อ ${g('cpi').v.toFixed(1)}% (${g('cpi').y})`); }
+    if(g('unemp')){ terms.push((Math.min(g('unemp').v,30)-5)*2); tt.push(`ว่างงาน ${g('unemp').v.toFixed(1)}% (${g('unemp').y})`); }
+    if(terms.length){ econ=clamp(50+terms.reduce((a,b)=>a+b,0),3,98); src.econ=true; tip.econ=tt.join(' · '); }
+    // การเงิน/หนี้ ← หนี้รัฐบาล/GDP, ดุลบัญชีเดินสะพัด
+    let fin=c.b[2]; terms=[]; tt=[];
+    if(g('debt')){ terms.push((Math.min(g('debt').v,250)-60)*0.2); tt.push(`หนี้รัฐบาล ${g('debt').v.toFixed(0)}% GDP (${g('debt').y})`); }
+    if(g('cab')){ terms.push(-clamp(g('cab').v,-8,8)*2.5); tt.push(`ดุลบัญชีเดินสะพัด ${g('cab').v.toFixed(1)}% GDP (${g('cab').y})`); }
+    if(terms.length){ fin=clamp(45+terms.reduce((a,b)=>a+b,0),3,98); src.fin=true; tip.fin=tt.join(' · '); }
+    // การเมือง ← WGI Political Stability (-2.5 .. +2.5)
+    let pol=c.b[3];
+    if(g('pv')){ pol=clamp(50-g('pv').v*22,3,98); src.pol=true; tip.pol=`WGI Political Stability ${g('pv').v.toFixed(2)} (${g('pv').y})`; }
+    geo=clamp(geo+aG,0,100); econ=clamp(econ+aE,0,100); fin=clamp(fin+aF,0,100);
+    const srcN=Object.values(src).filter(Boolean).length;
+    return {...c,geo,econ,fin,pol,total:geo*.35+econ*.25+fin*.25+pol*.15,trend,tone,
+      gdp:g('gdp')?.v??null, cpi:g('cpi')?.v??null, src, tip, srcN};
+  });
+}
+
+/* ================================================================
+   MODEL
+   ================================================================ */
+function baseParams(){
+  const m=REAL.market;
+  const vols=ASSETS.map((a,i)=> m?.vol?.[i] ?? a.vol);
+  const corr=(m?.corr||ASSUMED_CORR).map(r=>[...r]);
+  const mu=ASSETS.map(a=>a.mu);
+  if(REAL.y10){ mu[3]=REAL.y10.v/100; mu[4]=REAL.y10.v/100+0.01; }
+  if(REAL.y3m){ mu[7]=REAL.y3m.v/100; }
+  return {vols,corr,mu};
+}
+function model(){
+  const B=baseParams();
+  const dG=dlt('geo'),dI=dlt('inf'),dR=dlt('rate'),dC=dlt('rec'),dL=dlt('liq');
+  const stress=dG*.3+dC*.3+dL*.25+dI*.15;
+  const volMult=clamp(1+1.2*stress,0.5,2.5);
+  const corrStress=clamp(dL*0.5+dC*0.2,-0.3,0.7);
+  const corr=B.corr.map(r=>[...r]);
+  for(const i of RISKY)for(const j of RISKY) if(i!==j){
+    const c=corr[i][j]; corr[i][j]=clamp(corrStress>=0 ? c+corrStress*(1-c) : c*(1+corrStress), -0.99, 0.99);
+  }
+  const vols=B.vols.map((v,i)=>{
+    if(i===7) return v;
+    let x=v*volMult;
+    if(i===6) x*=Math.max(0.4,1+dG*0.6);
+    if(i===3||i===4) x*=Math.max(0.4,1+dR*0.5);
+    return x;});
+  const mu=B.mu.map((m,i)=>{
+    if([0,1,2].includes(i)) m-= dC*0.08 + dR*0.03;
+    if(i===2) m-= dG*0.03;
+    if(i===3) m+= dR*0.01 - dI*0.02;
+    if(i===5) m+= dG*0.03 + dI*0.02;
+    if(i===6) m+= dI*0.03 + dG*0.02;
+    return m;});
+  const cov=corr.map((r,i)=>r.map((c,j)=>c*vols[i]*vols[j]));
+  return {corr,vols,mu,cov,volMult,corrStress};
+}
+function portfolioStats(M,w){
+  const er=w.reduce((s,x,i)=>s+x*M.mu[i],0);
+  const Sw=M.cov.map(r=>r.reduce((s,c,j)=>s+c*w[j],0));
+  const vol=Math.sqrt(Math.max(w.reduce((s,x,i)=>s+x*Sw[i],0),1e-12));
+  const rc=w.map((x,i)=>x*Sw[i]/vol);
+  const z95=1.6449, z99=2.3263, phi95=Math.exp(-z95*z95/2)/Math.sqrt(2*Math.PI);
+  return {er,vol,rc,
+    var95y:-(er-z95*vol), var99y:-(er-z99*vol), cvar95:-(er-vol*phi95/0.05),
+    var95d:z95*vol/Math.sqrt(252), sharpe:(er-M.mu[7])/vol, beta:Sw[0]/M.cov[0][0]};
+}
+
+/* ================================================================
+   UI BUILD
+   ================================================================ */
+function buildSliders(){
+  $('#sliders').innerHTML = FACTORS.map(f=>`
+    <div class="slider" title="ค่าปัจจุบันคำนวณจาก: ${esc(f.how)}"><label><span>${f.n}<i id="c_${f.id}"></i></span><b id="v_${f.id}">${f.v}</b></label>
+    <input type="range" min="0" max="100" value="${f.v}" data-id="${f.id}"></div>`).join('');
+  document.querySelectorAll('#sliders input').forEach(el=>el.addEventListener('input',e=>{
+    const f=FACTORS.find(x=>x.id===e.target.dataset.id); f.v=+e.target.value; userTouched=true;
+    $('#v_'+f.id).textContent=f.v; $('#regime').value=''; updateAll(false);
+  }));
+  $('#sliders').addEventListener('change',()=>runMC());
+  $('#regime').addEventListener('change',e=>{
+    const r=REGIMES[e.target.value]; if(!r) return; userTouched=true;
+    FACTORS.forEach(f=>{f.v=r[f.id]; $('#v_'+f.id).textContent=f.v; document.querySelector(`#sliders input[data-id=${f.id}]`).value=f.v;});
+    updateAll(true);
+  });
+  $('#calibBtn').addEventListener('click',()=>{ userTouched=false; $('#regime').value=''; applyCalib(); updateAll(true); });
+}
+function buildAlloc(){
+  $('#alloc').innerHTML = ASSETS.map((a,i)=>`
+    <div><span class="sw" style="background:${a.c}"></span>${a.n}${a.sym?`<small>${a.sym}</small>`:''}</div>
+    <input type="number" min="0" max="100" step="1" value="${weights[i]}" data-i="${i}">`).join('');
+  document.querySelectorAll('#alloc input').forEach(el=>el.addEventListener('input',e=>{
+    weights[+e.target.dataset.i]=Math.max(0,+e.target.value||0); updateAll(false);
+  }));
+}
+$('#alloc').addEventListener('change',()=>runMC());
+document.querySelectorAll('[data-p]').forEach(b=>b.addEventListener('click',()=>{ weights=[...PRESETS[b.dataset.p]]; buildAlloc(); updateAll(true); }));
+$('#pv').addEventListener('input',()=>updateAll(false));
+$('#pv').addEventListener('change',()=>runMC());
+$('#rerun').addEventListener('click',()=>runMC());
+$('#saveKey').addEventListener('click',()=>{
+  const k=$('#avKey').value.trim(); if(!k) return;
+  try{ localStorage.setItem('srt_avkey',k); }catch(e){}
+  loadMarket();
+});
+$('#reload').addEventListener('click',()=>{ store.clear(); REAL.tone={}; REAL.wb={}; startLoading(); });
+
+/* ---- Country table ---- */
+let sortKey='total', sortDir=-1;
+function renderCountries(rows){
+  rows.sort((a,b)=>{const x=a[sortKey],y=b[sortKey]; if(x==null) return 1; if(y==null) return -1; return (typeof x==='string'?x.localeCompare(y):x-y)*sortDir;});
+  const cell=(r,k)=>`<td class="n" title="${esc(r.tip[k])}" style="color:${riskColor(r[k])};${r.src[k]?'':'opacity:.55'}">${r[k].toFixed(0)}</td>`;
+  const num=v=>v==null?'<td class="n" style="color:var(--muted)">—</td>':`<td class="n">${v.toFixed(1)}</td>`;
+  $('#ctable tbody').innerHTML=rows.map(r=>`<tr><td>${r.name}</td>${cell(r,'geo')}${cell(r,'econ')}${cell(r,'fin')}${cell(r,'pol')}
+    <td class="n"><span class="pill" style="background:${riskColor(r.total)}22;color:${riskColor(r.total)}">${r.total.toFixed(0)} · ${riskLabel(r.total)}</span></td>
+    <td style="color:${r.trend>0?'var(--bad)':r.trend<0?'var(--good)':'var(--muted)'}">${r.tone==null?'—':r.trend>0?'▲ แย่ลง':r.trend<0?'▼ ดีขึ้น':'► ทรงตัว'}</td>
+    ${num(r.gdp)}${num(r.cpi)}${num(r.tone)}
+    <td>${r.srcN===4?'<span class="badge b-real">จริง 4/4</span>':r.srcN?`<span class="badge b-real">จริง ${r.srcN}/4</span>`:'<span class="badge b-est">ประมาณการ</span>'}</td></tr>`).join('');
+}
+document.querySelectorAll('#ctable th').forEach(th=>th.addEventListener('click',()=>{
+  const k=th.dataset.k; if(sortKey===k) sortDir*=-1; else {sortKey=k; sortDir=k==='name'?1:-1;}
+  renderCountries(countryScores());
+}));
+
+/* ---- News feed ---- */
+function sev(title){
+  const t=(title||'').toLowerCase();
+  if(/\b(war|missile|nuclear|invasion|airstrike|killed|bomb|attack)/.test(t)) return 4;
+  if(/\b(sanction|coup|default|crisis|collapse|escalat|strike|protest)/.test(t)) return 3;
+  if(/\b(tariff|inflation|rate|recession|central bank|yield|debt)/.test(t)) return 2;
+  return 1;
+}
+function gdDate(s){ const m=/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(s||''); return m?new Date(Date.UTC(+m[1],m[2]-1,+m[3],+m[4],+m[5],+m[6])):null; }
+function renderFeed(){
+  if(!REAL.news.length){ $('#feed').innerHTML='<div class="note">ยังโหลดข่าวไม่ได้ — GDELT อาจกำลังจำกัดอัตราการเรียก ลองกด "โหลดใหม่" ภายหลัง</div>'; return; }
+  const lv=['','ต่ำ','ปานกลาง','สูง','วิกฤต'], col=['','#2ecc71','#f1c40f','#e67e22','#ff2e63'];
+  $('#feed').innerHTML=REAL.news.map(a=>{ const s=sev(a.title), d=gdDate(a.seendate);
+    return `<div class="ev"><div class="t">${d?d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):''}<br>${d?d.toLocaleDateString('th-TH',{day:'numeric',month:'short'}):''}</div>
+    <div><a class="ttl" href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)}</a><div class="reg">${esc(a.domain)} · ${esc(a.sourcecountry||'')}</div></div>
+    <span class="pill" style="background:${col[s]}22;color:${col[s]}">${lv[s]}</span></div>`; }).join('');
+}
+
+/* ---- Ticker ---- */
+function renderTicker(){
+  const items=[];
+  const it=(k,v,ch,inv=false)=>{ const up=ch>=0, good=inv?!up:up;
+    return `<span class="it">${k} <b>${v}</b> ${ch==null?'':`<span style="color:${good?'var(--good)':'var(--bad)'}">${up?'▲':'▼'}${Math.abs(ch).toFixed(2)}%</span>`}</span>`; };
+  const q=REAL.market?.quotes||{};
+  for(const a of ASSETS) if(a.sym&&q[a.sym]) items.push(it(a.sym,'$'+q[a.sym].last.toFixed(2),q[a.sym].chg*100));
+  if(REAL.y10){ const b=REAL.y10.prev!=null?Math.round((REAL.y10.v-REAL.y10.prev)*100):null;
+    items.push(`<span class="it">US10Y <b>${REAL.y10.v.toFixed(2)}%</b> ${b==null?'':`<span style="color:${b>0?'var(--bad)':'var(--good)'}">${b>=0?'▲':'▼'}${Math.abs(b)} bps</span>`}</span>`); }
+  if(REAL.y3m) items.push(it('US3M',REAL.y3m.v.toFixed(2)+'%',null));
+  if(REAL.y10&&REAL.y3m){ const s=REAL.y10.v-REAL.y3m.v; items.push(`<span class="it">10Y–3M <b style="color:${s<0?'var(--bad)':'var(--good)'}">${(s*100).toFixed(0)} bps</b></span>`); }
+  if(REAL.fx) for(const c of ['EUR','JPY','CNY','THB','GBP']){ const l=REAL.fx.last[c], p=REAL.fx.prev[c];
+    if(l) items.push(it('USD/'+c,l.toFixed(c==='JPY'||c==='THB'?2:4),(l/p-1)*100)); }
+  if(!items.length){ $('#ticker').innerHTML='<span class="it" style="color:var(--muted)">กำลังโหลดข้อมูลตลาด…</span>'; $('#ticker').style.animation='none'; return; }
+  $('#ticker').style.animation='';
+  const html=items.join(''); $('#ticker').innerHTML=html+html;
+}
+
+/* ================================================================
+   CHARTS
+   ================================================================ */
+Chart.defaults.color='#7f8ea3';
+Chart.defaults.borderColor='#1f2b3e';
+Chart.defaults.font.family="'IBM Plex Sans Thai',sans-serif";
+
+const gauge=new Chart($('#gauge'),{type:'doughnut',
+  data:{datasets:[{data:[50,50],backgroundColor:['#f1c40f','#1f2b3e'],borderWidth:0}]},
+  options:{rotation:-90,circumference:180,cutout:'78%',maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}}}});
+const matrix=new Chart($('#matrix'),{type:'bubble',
+  data:{datasets:[{data:[],backgroundColor:[],borderColor:'#070b12'}]},
+  options:{maintainAspectRatio:false,
+    scales:{x:{min:0,max:100,title:{display:true,text:'โอกาสเกิด (%)'}},y:{min:20,max:105,title:{display:true,text:'ผลกระทบ'}}},
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw.n}: โอกาส ${c.raw.x.toFixed(0)}% · ผลกระทบ ${c.raw.y.toFixed(0)}`}}}}});
+const contrib=new Chart($('#contrib'),{type:'bar',
+  data:{labels:ASSETS.map(a=>a.n),datasets:[
+    {label:'สัดส่วนเงินลงทุน',data:[],backgroundColor:'#3fa7ff66'},
+    {label:'สัดส่วนความเสี่ยง',data:[],backgroundColor:'#f5a623'}]},
+  options:{maintainAspectRatio:false,scales:{y:{ticks:{callback:v=>v+'%'}}},
+    plugins:{tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.raw.toFixed(1)}%`}}}}});
+const mcChart=new Chart($('#mc'),{type:'line',
+  data:{labels:['ปัจจุบัน',...Array.from({length:12},(_,i)=>'ด.'+(i+1))],datasets:[]},
+  options:{maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    elements:{point:{radius:0}},scales:{y:{ticks:{callback:v=>'$'+(v/1e6).toFixed(1)+'M'}}},
+    plugins:{legend:{labels:{filter:i=>!i.text.startsWith('_')}},tooltip:{filter:i=>!i.dataset.label.startsWith('_'),callbacks:{label:c=>`${c.dataset.label}: ${fmtUSD(c.raw)}`}}}}});
+const stressChart=new Chart($('#stress'),{type:'bar',
+  data:{labels:SCENARIOS.map(s=>s.n),datasets:[{data:[],backgroundColor:[]}]},
+  options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false},
+    tooltip:{callbacks:{label:c=>`${c.raw.toFixed(2)}%  (${fmtUSD(c.raw/100*(+$('#pv').value||0))})`}}},
+    scales:{x:{ticks:{callback:v=>v+'%'}}}}});
+
+/* ================================================================
+   UPDATE
+   ================================================================ */
+let LAST={};
+function normWeights(){ const s=weights.reduce((a,b)=>a+b,0); return {sum:s, w:s>0?weights.map(x=>x/s):weights.map(()=>0)}; }
+function updateAll(withMC=true){
+  const M=model(), {sum,w}=normWeights(), P=portfolioStats(M,w), pv=+$('#pv').value||0;
+  LAST={M,w};
+  $('#sumWarn').innerHTML = Math.abs(sum-100)<0.01 ? `<span style="color:var(--good)">✓ รวม 100%</span>`
+    : `<span style="color:var(--bad)">⚠ รวม ${sum}% — คำนวณโดยปรับให้เป็น 100%</span>`;
+
+  // Global index
+  const rows=countryScores();
+  const cIdx=rows.reduce((s,r)=>s+r.total*r.w,0)/rows.reduce((s,r)=>s+r.w,0);
+  const fIdx=FACTORS.reduce((s,f)=>s+f.v,0)/FACTORS.length;
+  const gIdx=clamp(cIdx*0.55+fIdx*0.45,0,100);
+  gauge.data.datasets[0].data=[gIdx,100-gIdx]; gauge.data.datasets[0].backgroundColor[0]=riskColor(gIdx); gauge.update();
+  $('#gIdx').textContent=gIdx.toFixed(1); $('#gIdx').style.color=riskColor(gIdx);
+  $('#gLbl').textContent='ระดับความเสี่ยง: '+riskLabel(gIdx);
+  $('#hdrIdx').textContent=gIdx.toFixed(1)+' ('+riskLabel(gIdx)+')'; $('#hdrIdx').style.color=riskColor(gIdx);
+  $('#kVolMult').textContent=M.volMult.toFixed(2)+'×';
+  $('#kCorrStress').textContent=(M.corrStress>=0?'+':'')+(M.corrStress*100).toFixed(0)+'%';
+  renderCountries(rows);
+
+  // Risk matrix
+  const pts=RISKS.map(k=>{ const p=clamp(k.p*(1+(k.f?dlt(k.f):0)*1.5),2,98); return {x:p,y:k.i,r:k.u*2.2,n:k.n}; });
+  matrix.data.datasets[0].data=pts;
+  matrix.data.datasets[0].backgroundColor=pts.map(p=>riskColor(p.x*p.y/100*1.3)+'cc');
+  matrix.update();
+
+  // KPIs
+  const k=(t,v,c='')=>`<div class="kpi"><div class="k">${t}</div><div class="v" style="${c}">${v}</div></div>`;
+  $('#pkpis').innerHTML=
+    k('ผลตอบแทนคาดหวัง/ปี',fmtPct(P.er,2),`color:${P.er>=0?'var(--good)':'var(--bad)'}`)+
+    k('ความผันผวน/ปี',fmtPct(P.vol,2))+
+    k('VaR 95% · 1 วัน',fmtUSD(P.var95d*pv),'color:var(--warn)')+
+    k('VaR 95% · 1 ปี',fmtUSD(P.var95y*pv),'color:var(--bad)')+
+    k('VaR 99% · 1 ปี',fmtUSD(P.var99y*pv),'color:var(--bad)')+
+    k('CVaR 95% · 1 ปี',fmtUSD(P.cvar95*pv),'color:var(--crit)')+
+    k('Sharpe Ratio',P.sharpe.toFixed(2))+
+    k('Beta เทียบ S&P 500',P.beta.toFixed(2));
+  $('#hdrVar').textContent=fmtUSD(P.var95y*pv);
+  const m=REAL.market;
+  $('#riskTag').innerHTML = m ? `ความผันผวน/สหสัมพันธ์จริง ${m.n} วันทำการ (${m.from} → ${m.to})${REAL.y10?' · ผลตอบแทนพันธบัตร/เงินสดจาก yield จริง':''} <span class="badge b-real">จริง</span>`
+    : `ใช้ค่าความผันผวนสมมติ — ใส่ API key เพื่อใช้ข้อมูลจริง <span class="badge b-est">สมมติ</span>`;
+  contrib.data.datasets[0].data=w.map(x=>x*100);
+  contrib.data.datasets[1].data=P.rc.map(x=>x/P.vol*100);
+  contrib.update();
+
+  // Stress
+  const losses=SCENARIOS.map(s=>s.s.reduce((a,x,i)=>a+x*w[i],0)*(0.8+0.2*M.volMult));
+  stressChart.data.datasets[0].data=losses;
+  stressChart.data.datasets[0].backgroundColor=losses.map(l=>l<-20?'#ff2e63':l<-10?'#e67e22':l<0?'#f1c40f':'#2ecc71');
+  stressChart.update();
+  $('#stable').innerHTML=`<tr><th>ฉากทัศน์</th>${SHORT.map(s=>`<th class="n">${s}</th>`).join('')}<th class="n">พอร์ต</th><th class="n">USD</th></tr>`+
+    SCENARIOS.map((s,j)=>`<tr><td>${s.n}</td>${s.s.map(x=>`<td class="n" style="color:${x<0?'var(--bad)':x>0?'var(--good)':'var(--muted)'}">${x>0?'+':''}${x}</td>`).join('')}
+    <td class="n" style="font-weight:600;color:${losses[j]<0?'var(--bad)':'var(--good)'}">${losses[j].toFixed(1)}%</td>
+    <td class="n">${fmtUSD(losses[j]/100*pv)}</td></tr>`).join('');
+
+  // Correlation
+  $('#corrTag').innerHTML = m ? `คำนวณจากผลตอบแทนรายวันจริง ${m.n} วัน + ปรับตามสถานการณ์ <span class="badge b-real">จริง</span>` : 'ค่าสมมติ (ยังไม่มีข้อมูลตลาด) <span class="badge b-est">สมมติ</span>';
+  $('#corr').innerHTML=`<tr><th></th>${SHORT.map(s=>`<th>${s}</th>`).join('')}</tr>`+
+    M.corr.map((row,i)=>`<tr><th style="text-align:right">${SHORT[i]}</th>${row.map(c=>{
+      const a=Math.abs(c), bg=c>=0?`rgba(231,76,60,${a*.85})`:`rgba(63,167,255,${a*.85})`;
+      return `<td style="background:${bg};color:${a>.55?'#fff':'#bbb'}">${c.toFixed(2)}</td>`;}).join('')}</tr>`).join('');
+
+  if(withMC) runMC();
+}
+
+function runMC(){
+  const {M,w}=LAST.M?LAST:{M:model(),w:normWeights().w};
+  const pv=+$('#pv').value||0, N=2000, T=12, dt=1/12;
+  const L=chol(M.corr), paths=[];
+  for(let n=0;n<N;n++){
+    let v=pv; const path=[v];
+    for(let t=0;t<T;t++){
+      const z=ASSETS.map(()=>randn()); let r=0;
+      for(let i=0;i<w.length;i++){
+        if(!w[i]) continue;
+        let e=0; for(let k=0;k<=i;k++) e+=L[i][k]*z[k];
+        r+=w[i]*(Math.exp((M.mu[i]-0.5*M.vols[i]**2)*dt + M.vols[i]*Math.sqrt(dt)*e)-1);
+      }
+      v*=1+r; path.push(v);
+    }
+    paths.push(path);
+  }
+  const band=p=>Array.from({length:T+1},(_,t)=>{const s=paths.map(x=>x[t]).sort((a,b)=>a-b);return s[Math.floor(p*(s.length-1))];});
+  const p5=band(.05),p25=band(.25),p50=band(.5),p75=band(.75),p95=band(.95);
+  mcChart.data.datasets=[
+    ...paths.slice(0,25).map((p,i)=>({label:'_s'+i,data:p,borderColor:'#3fa7ff22',borderWidth:1,fill:false})),
+    {label:'_p95',data:p95,borderColor:'transparent',fill:false},
+    {label:'ช่วง 5–95%',data:p5,borderColor:'#e74c3c88',backgroundColor:'#f5a62318',fill:'-1',borderDash:[4,4]},
+    {label:'_p75',data:p75,borderColor:'transparent',fill:false},
+    {label:'ช่วง 25–75%',data:p25,borderColor:'transparent',backgroundColor:'#f5a62333',fill:'-1'},
+    {label:'ค่ากลาง (Median)',data:p50,borderColor:'#f5a623',borderWidth:2.5,fill:false},
+    {label:'กรณีดี (95th)',data:p95,borderColor:'#2ecc71',borderWidth:1.5,fill:false},
+  ];
+  mcChart.update();
+  const finals=paths.map(p=>p[T]);
+  $('#mcNote').textContent=`โอกาสขาดทุนใน 12 เดือน: ${(finals.filter(v=>v<pv).length/N*100).toFixed(1)}% · ขาดทุนเกิน 20%: ${(finals.filter(v=>v<pv*0.8).length/N*100).toFixed(1)}% · ค่ากลางสิ้นปี: ${fmtUSD(p50[T])}`;
+}
+
+/* ================================================================
+   INIT
+   ================================================================ */
+function tick(){ $('#clock').textContent=new Date().toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'medium'}); }
+function startLoading(){
+  loadWB(); loadFX();
+  loadNews().then(loadTone);   // GDELT ทำทีละคำขอตามคิว
+  loadMarket();
+}
+setInterval(tick,1000); tick();
+buildSrc(); buildSliders(); buildAlloc();
+$('#avKey').value=getKey();
+renderTicker(); updateAll(true);
+startLoading();
+</script>
+</body>
+</html>
